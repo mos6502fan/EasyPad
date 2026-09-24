@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyPad</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 13px;
+    background: #f0f0f0;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toolstrip {
+    background: #f0f0f0;
+    border-bottom: 1px solid #d0d0d0;
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 4px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .splitbtn {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 22px;
+    margin: 0 2px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .splitbtn:hover { background: #e5f0fa; border-color: #a9c9e6; }
+  .splitbtn.active { background: #cce4f7; border-color: #7eb4ea; }
+  .splitbtn .label {
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    color: #222;
+    font-size: 13px;
+  }
+  .splitbtn .arrow {
+    width: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #444;
+    border-left: 1px solid #d0d0d0;
+  }
+
+  .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 180px;
+    background: #fff;
+    border: 1px solid #a0a0a0;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+    padding: 2px 0;
+    z-index: 100;
+    display: none;
+  }
+  .dropdown.open { display: block; }
+  .dropdown .item {
+    padding: 5px 24px;
+    color: #222;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .dropdown .item:hover { background: #cce4f7; }
+  .dropdown .sep {
+    height: 1px;
+    background: #d0d0d0;
+    margin: 3px 0;
+  }
+
+  .editor-wrap {
+    flex: 1;
+    overflow: hidden;
+    background: #fff;
+    display: flex;
+  }
+  #editor {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 6px 8px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.35;
+    color: #111;
+    background: #fff;
+    overflow: auto;
+    tab-size: 4;
+    white-space: pre;
+  }
+
+  .statusbar {
+    height: 24px;
+    background: #f0f0f0;
+    border-top: 1px solid #d0d0d0;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #333;
+    padding: 0 4px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .statusbar .cell {
+    padding: 0 10px;
+    border-right: 1px solid #d0d0d0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+  .statusbar .cell:last-child { border-right: none; }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .overlay.open { display: flex; }
+
+  .dialog {
+    background: #f0f0f0;
+    border: 1px solid #888;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    min-width: 300px;
+    font-size: 13px;
+  }
+  .dialog .title {
+    background: #e6e6e6;
+    padding: 6px 10px;
+    font-weight: 600;
+    border-bottom: 1px solid #c8c8c8;
+  }
+  .dialog .body {
+    padding: 16px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dialog select {
+    flex: 1;
+    padding: 3px 6px;
+    font-size: 13px;
+    border: 1px solid #a0a0a0;
+    background: #fff;
+  }
+  .dialog .footer {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid #d0d0d0;
+  }
+  .dialog button {
+    min-width: 75px;
+    padding: 4px 10px;
+    font-size: 13px;
+    background: #e1e1e1;
+    border: 1px solid #adadad;
+    cursor: pointer;
+  }
+  .dialog button:hover { background: #e5f0fa; border-color: #7eb4ea; }
+
+  .msgbox {
+    background: #f0f0f0;
+    border: 1px solid #888;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    min-width: 320px;
+    font-size: 13px;
+  }
+  .msgbox .body {
+    padding: 18px 16px;
+    white-space: pre-line;
+    line-height: 1.4;
+  }
+  .msgbox .footer {
+    padding: 10px 14px 14px;
+    display: flex;
+    justify-content: center;
+  }
+  .msgbox button {
+    min-width: 75px;
+    padding: 4px 10px;
+    background: #e1e1e1;
+    border: 1px solid #adadad;
+    cursor: pointer;
+  }
+  .msgbox button:hover { background: #e5f0fa; border-color: #7eb4ea; }
+</style>
+</head>
+<body>
+
+<div class="toolstrip">
+  <div class="splitbtn" id="btnAbout">
+    <div class="label" id="lblAbout">О программе</div>
+    <div class="arrow">▼</div>
+    <div class="dropdown" id="ddAbout">
+      <div class="item" data-key="about">О программе</div>
+      <div class="item" data-key="settings">Настройки</div>
+    </div>
+  </div>
+
+  <div class="splitbtn" id="btnEdit">
+    <div class="label" id="lblEdit">Правка</div>
+    <div class="arrow">▼</div>
+    <div class="dropdown" id="ddEdit">
+      <div class="item" data-key="undo">Отменить</div>
+      <div class="item" data-key="redo">Повторить</div>
+      <div class="sep"></div>
+      <div class="item" data-key="cut">Вырезать</div>
+      <div class="item" data-key="copy">Копировать</div>
+      <div class="item" data-key="paste">Вставить</div>
+      <div class="sep"></div>
+      <div class="item" data-key="selectAll">Выделить всё</div>
+    </div>
+  </div>
+
+  <div class="splitbtn" id="btnFile">
+    <div class="label" id="lblFile">Файл</div>
+    <div class="arrow">▼</div>
+    <div class="dropdown" id="ddFile">
+      <div class="item" data-key="new">Создать</div>
+      <div class="item" data-key="open">Открыть...</div>
+      <div class="item" data-key="save">Сохранить...</div>
+      <div class="sep"></div>
+      <div class="item" data-key="exit">Выход</div>
+    </div>
+  </div>
+</div>
+
+<div class="editor-wrap">
+  <textarea id="editor" spellcheck="false" wrap="off"></textarea>
+</div>
+
+<div class="statusbar">
+  <div class="cell" id="stPos">Строка: 1:1</div>
+  <div class="cell" id="stLines">Строк: 1</div>
+  <div class="cell" id="stChars">Символов: 0</div>
+  <div class="cell" id="stSel"></div>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="dialog">
+    <div class="title" id="settingsTitle">Настройки</div>
+    <div class="body">
+      <label id="langLabel" for="langSelect">Язык:</label>
+      <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+      </select>
+    </div>
+    <div class="footer">
+      <button id="settingsOk">OK</button>
+      <button id="settingsCancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="aboutOverlay">
+  <div class="msgbox">
+    <div class="body" id="aboutText"></div>
+    <div class="footer">
+      <button id="aboutOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  var translations = {
+    ru: {
+      about: "О программе", aboutText: "EasyPad v1.0\nПростой текстовый редактор",
+      settings: "Настройки", language: "Язык",
+      file: "Файл", edit: "Правка",
+      "new": "Создать", open: "Открыть...", save: "Сохранить...", exit: "Выход",
+      undo: "Отменить", redo: "Повторить",
+      cut: "Вырезать", copy: "Копировать", paste: "Вставить", selectAll: "Выделить всё",
+      newFile: "Новый файл", ok: "OK", cancel: "Отмена", settingsTitle: "Настройки",
+      pos: "Строка", lines: "Строк", chars: "Символов", sel: "Выделено",
+      closeConfirm: "Закрыть EasyPad?"
+    },
+    en: {
+      about: "About", aboutText: "EasyPad v1.0\nSimple text editor",
+      settings: "Settings", language: "Language",
+      file: "File", edit: "Edit",
+      "new": "New", open: "Open...", save: "Save...", exit: "Exit",
+      undo: "Undo", redo: "Redo",
+      cut: "Cut", copy: "Copy", paste: "Paste", selectAll: "Select All",
+      newFile: "New File", ok: "OK", cancel: "Cancel", settingsTitle: "Settings",
+      pos: "Line", lines: "Lines", chars: "Chars", sel: "Selected",
+      closeConfirm: "Close EasyPad?"
+    },
+    de: {
+      about: "Über", aboutText: "EasyPad v1.0\nEinfacher Texteditor",
+      settings: "Einstellungen", language: "Sprache",
+      file: "Datei", edit: "Bearbeiten",
+      "new": "Neu", open: "Öffnen...", save: "Speichern...", exit: "Beenden",
+      undo: "Rückgängig", redo: "Wiederholen",
+      cut: "Ausschneiden", copy: "Kopieren", paste: "Einfügen", selectAll: "Alles auswählen",
+      newFile: "Neue Datei", ok: "OK", cancel: "Abbrechen", settingsTitle: "Einstellungen",
+      pos: "Zeile", lines: "Zeilen", chars: "Zeichen", sel: "Ausgewählt",
+      closeConfirm: "EasyPad schließen?"
+    }
+  };
+
+  var currentLang = "ru";
+  try { currentLang = localStorage.getItem("easypad.lang") || "ru"; } catch(e) {}
+  var currentFile = "";
+
+  var editor = document.getElementById("editor");
+
+  function T(key) {
+    var dict = translations[currentLang] || translations.ru;
+    return dict[key] || key;
+  }
+
+  function applyLanguage() {
+    document.getElementById("lblAbout").textContent = T("about");
+    document.getElementById("lblEdit").textContent = T("edit");
+    document.getElementById("lblFile").textContent = T("file");
+
+    var items = document.querySelectorAll(".dropdown .item");
+    for (var i = 0; i < items.length; i++) {
+      items[i].textContent = T(items[i].getAttribute("data-key"));
+    }
+
+    document.getElementById("settingsTitle").textContent = T("settingsTitle");
+    document.getElementById("langLabel").textContent = T("language") + ":";
+    document.getElementById("settingsOk").textContent = T("ok");
+    document.getElementById("settingsCancel").textContent = T("cancel");
+    document.getElementById("aboutText").textContent = T("aboutText");
+    document.getElementById("aboutOk").textContent = T("ok");
+
+    document.title = "EasyPad - " + (currentFile || T("newFile"));
+    updateStatus();
+  }
+
+  function updateStatus() {
+    var text = editor.value;
+    var pos = editor.selectionStart;
+    var before = text.substring(0, pos);
+    var line = before.split("\n").length;
+    var lastNl = before.lastIndexOf("\n");
+    var col = pos - (lastNl >= 0 ? lastNl : -1);
+
+    var lines = text.length === 0 ? 1 : text.split("\n").length;
+    var chars = text.length;
+    var sel = editor.selectionEnd - editor.selectionStart;
+
+    document.getElementById("stPos").textContent = T("pos") + ": " + line + ":" + col;
+    document.getElementById("stLines").textContent = T("lines") + ": " + lines;
+    document.getElementById("stChars").textContent = T("chars") + ": " + chars;
+    document.getElementById("stSel").textContent = sel > 0 ? T("sel") + ": " + sel : "";
+  }
+
+  var buttons = [
+    { btn: "btnAbout", dd: "ddAbout" },
+    { btn: "btnEdit", dd: "ddEdit" },
+    { btn: "btnFile", dd: "ddFile" }
+  ];
+
+  function closeAll() {
+    for (var i = 0; i < buttons.length; i++) {
+      document.getElementById(buttons[i].dd).classList.remove("open");
+      document.getElementById(buttons[i].btn).classList.remove("active");
+    }
+  }
+
+  buttons.forEach(function(pair) {
+    var btn = document.getElementById(pair.btn);
+    var dd = document.getElementById(pair.dd);
+
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var wasOpen = dd.classList.contains("open");
+      closeAll();
+      if (!wasOpen) {
+        dd.classList.add("open");
+        btn.classList.add("active");
+      }
+    });
+
+    dd.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+  });
+
+  document.addEventListener("click", closeAll);
+
+  var editActions = {
+    undo: function() { editor.focus(); document.execCommand("undo"); updateStatus(); },
+    redo: function() { editor.focus(); document.execCommand("redo"); updateStatus(); },
+    cut: function() { editor.focus(); document.execCommand("cut"); updateStatus(); },
+    copy: function() { editor.focus(); document.execCommand("copy"); },
+    paste: function() {
+      editor.focus();
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function(t) {
+          var s = editor.selectionStart, e = editor.selectionEnd;
+          editor.setRangeText(t, s, e, "end");
+          updateStatus();
+        }).catch(function() {
+          document.execCommand("paste");
+          updateStatus();
+        });
+      } else {
+        document.execCommand("paste");
+        updateStatus();
+      }
+    },
+    selectAll: function() { editor.focus(); editor.select(); updateStatus(); }
+  };
+
+  var fileActions = {
+    "new": function() {
+      editor.value = "";
+      currentFile = "";
+      applyLanguage();
+      editor.focus();
+    },
+    open: function() {
+      var inp = document.createElement("input");
+      inp.type = "file";
+      inp.accept = ".txt,.md,.log,.ini,.cfg,.json,.xml,.csv,text/plain";
+      inp.onchange = function() {
+        var f = inp.files[0];
+        if (!f) return;
+        var r = new FileReader();
+        r.onload = function() {
+          editor.value = r.result;
+          currentFile = f.name;
+          applyLanguage();
+          editor.focus();
+        };
+        r.readAsText(f);
+      };
+      inp.click();
+    },
+    save: function() {
+      var blob = new Blob([editor.value], { type: "text/plain;charset=utf-8" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = currentFile || "untitled.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+    },
+    exit: function() {
+      if (confirm(T("closeConfirm"))) {
+        window.open("", "_self");
+        window.close();
+      }
+    }
+  };
+
+  var aboutActions = {
+    about: function() {
+      document.getElementById("aboutOverlay").classList.add("open");
+    },
+    settings: function() {
+      document.getElementById("langSelect").value = currentLang;
+      document.getElementById("settingsOverlay").classList.add("open");
+    }
+  };
+
+  var items = document.querySelectorAll(".dropdown .item");
+  for (var i = 0; i < items.length; i++) {
+    (function(item) {
+      item.addEventListener("click", function() {
+        var key = item.getAttribute("data-key");
+        closeAll();
+        if (editActions[key]) editActions[key]();
+        else if (fileActions[key]) fileActions[key]();
+        else if (aboutActions[key]) aboutActions[key]();
+      });
+    })(items[i]);
+  }
+
+  document.getElementById("settingsOk").addEventListener("click", function() {
+    currentLang = document.getElementById("langSelect").value;
+    try { localStorage.setItem("easypad.lang", currentLang); } catch(e) {}
+    document.getElementById("settingsOverlay").classList.remove("open");
+    applyLanguage();
+    editor.focus();
+  });
+
+  document.getElementById("settingsCancel").addEventListener("click", function() {
+    document.getElementById("settingsOverlay").classList.remove("open");
+    editor.focus();
+  });
+
+  document.getElementById("aboutOk").addEventListener("click", function() {
+    document.getElementById("aboutOverlay").classList.remove("open");
+    editor.focus();
+  });
+
+  editor.addEventListener("input", updateStatus);
+  editor.addEventListener("click", updateStatus);
+  editor.addEventListener("keyup", updateStatus);
+  editor.addEventListener("select", updateStatus);
+
+  editor.addEventListener("keydown", function(e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var s = editor.selectionStart, en = editor.selectionEnd;
+      editor.setRangeText("\t", s, en, "end");
+      updateStatus();
+    }
+  });
+
+  document.addEventListener("dragover", function(e) { e.preventDefault(); });
+  document.addEventListener("drop", function(e) {
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function() {
+      editor.value = r.result;
+      currentFile = f.name;
+      applyLanguage();
+    };
+    r.readAsText(f);
+  });
+
+  applyLanguage();
+  editor.focus();
+})();
+</script>
+
+</body>
+</html>
